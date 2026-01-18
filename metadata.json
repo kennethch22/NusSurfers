@@ -1,0 +1,7 @@
+{
+  "name": "Pygame Runner Generator",
+  "description": "A developer tool that generates complete, structured Python + Pygame code for an endless runner game based on user specifications. Includes code viewer, asset guide, and AI assistant.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
