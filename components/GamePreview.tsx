@@ -1043,7 +1043,6 @@ export const GamePreview: React.FC = () => {
                         <div className="absolute inset-6 bg-gradient-to-b from-yellow-400/30 via-orange-500/20 to-purple-500/10 blur-3xl opacity-80 pointer-events-none"></div>
                         <img src={logoUrl} alt="NUS Surfers logo" className="relative z-10 w-full max-w-[360px] drop-shadow-[0_10px_0_rgba(0,0,0,0.8)] mix-blend-screen pointer-events-none select-none" />
                     </div>
-                    <h1 className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-b from-orange-400 to-red-600 tracking-tighter drop-shadow-[3px_3px_0_rgba(0,0,0,1)] transform -skew-x-6">NUS SURFERS</h1>
                 </div>
                 
                 {gameState === 'GRADUATED' && (
