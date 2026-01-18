@@ -2,6 +2,11 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Play, Upload, Sliders, Check, Loader2, Trophy, Settings, Wand2, GraduationCap, Shield, Zap, Target, Infinity, AlertTriangle, FileVideo, Cpu, Camera } from 'lucide-react';
 import { GoogleGenAI } from '@google/genai';
 
+const logoUrl = new URL('../nus-surfers-logo.png', import.meta.url).href;
+const dingSfxUrl = new URL('../ding.mp3', import.meta.url).href;
+const bgmUrl = new URL('../bgm.mp3', import.meta.url).href;
+const jumpSfxUrl = new URL('../jump.mp3', import.meta.url).href;
+
 // --- CONSTANTS ---
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 600;
@@ -146,7 +151,9 @@ export const GamePreview: React.FC = () => {
 
   // Added: Visual Effects Ref and Sound Ref
   const effectsRef = useRef<VisualEffect[]>([]);
-  const collectSoundRef = useRef<HTMLAudioElement | null>(null);
+  const dingSoundRef = useRef<HTMLAudioElement | null>(null);
+  const jumpSoundRef = useRef<HTMLAudioElement | null>(null);
+  const bgmRef = useRef<HTMLAudioElement | null>(null);
 
   // Timers
   const bossIntervalTimerRef = useRef<number>(0); 
@@ -174,8 +181,16 @@ export const GamePreview: React.FC = () => {
     }
 
     // Initialize Audio
-    collectSoundRef.current = new Audio('collect.mp3');
-    collectSoundRef.current.volume = 0.6;
+    dingSoundRef.current = new Audio(dingSfxUrl);
+    dingSoundRef.current.volume = 0.75;
+    dingSoundRef.current.preload = 'auto';
+    jumpSoundRef.current = new Audio(jumpSfxUrl);
+    jumpSoundRef.current.volume = 0.65;
+    jumpSoundRef.current.preload = 'auto';
+    bgmRef.current = new Audio(bgmUrl);
+    bgmRef.current.loop = true;
+    bgmRef.current.volume = 0.35;
+    bgmRef.current.preload = 'auto';
 
     const v = document.createElement('video');
     v.loop = true;
@@ -189,6 +204,9 @@ export const GamePreview: React.FC = () => {
         // Ensure manual stream cleanup
         if (streamRef.current) {
             streamRef.current.getTracks().forEach(t => t.stop());
+        }
+        if (bgmRef.current) {
+            bgmRef.current.pause();
         }
     };
   }, []);
@@ -366,6 +384,17 @@ export const GamePreview: React.FC = () => {
     };
   }, [gameState]);
 
+  useEffect(() => {
+    const bgm = bgmRef.current;
+    if (!bgm) return;
+    if (gameState === 'PLAYING' || gameState === 'BOSS_WARNING' || gameState === 'BOSS_FIGHT') {
+        if (bgm.paused) bgm.play().catch(() => {});
+    } else {
+        bgm.pause();
+        bgm.currentTime = 0;
+    }
+  }, [gameState]);
+
   const saveScore = (newScore: number) => {
       const date = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
       // Use current mcs state
@@ -522,6 +551,27 @@ export const GamePreview: React.FC = () => {
     return { x: sx + curveOffset, y: sy, scale: scale * pixelsPerWorldUnit, alpha };
   };
 
+  const playDingSfx = () => {
+    const audio = dingSoundRef.current;
+    if (!audio) return;
+    audio.currentTime = 0;
+    audio.play().catch(() => {});
+  };
+
+  const playJumpSfx = () => {
+    const audio = jumpSoundRef.current;
+    if (!audio) return;
+    audio.currentTime = 0;
+    audio.play().catch(() => {});
+  };
+
+  const playBgm = (resetPosition = false) => {
+    const audio = bgmRef.current;
+    if (!audio) return;
+    if (resetPosition) audio.currentTime = 0;
+    if (audio.paused) audio.play().catch(() => {});
+  };
+
   const resetGame = () => {
     gameStateRef.current = 'PLAYING';
     setGameState('PLAYING');
@@ -540,6 +590,7 @@ export const GamePreview: React.FC = () => {
     setMcs(0);
     setSus(0);
     setBossHits(0);
+    playBgm(true);
     
     // Safety: Reset tracking refs here too in case of mid-game reset
     leftHandCycleRef.current = { lastY: 0.5, phase: 'IDLE' };
@@ -558,6 +609,7 @@ export const GamePreview: React.FC = () => {
   const continueLifeLongLearning = () => {
       gameStateRef.current = 'PLAYING';
       setGameState('PLAYING');
+      playBgm(true);
       lifeLongLearningRef.current = true;
       if (videoRef.current) videoRef.current.play();
   };
@@ -595,7 +647,7 @@ export const GamePreview: React.FC = () => {
       } else if (e.code === 'ArrowRight') {
         if (p.laneIndex < 2) { p.laneIndex++; p.targetX = (p.laneIndex - 1) * LANE_WIDTH_WORLD; }
       } else if (e.code === 'Space' || e.code === 'ArrowUp') {
-        if (!p.isJumping) { p.isJumping = true; p.yVelocity = JUMP_VELOCITY; }
+        if (!p.isJumping) { p.isJumping = true; p.yVelocity = JUMP_VELOCITY; playJumpSfx(); }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -750,7 +802,7 @@ export const GamePreview: React.FC = () => {
           if (obs.type === 'mc_token') { 
               setMcs(prev => prev + MCS_PER_TOKEN); 
               // Added: SFX and Effect
-              if (collectSoundRef.current) { collectSoundRef.current.currentTime = 0; collectSoundRef.current.play().catch(() => {}); }
+              playDingSfx();
               effectsRef.current.push({ x: obs.x, y: 0, z: obs.z, text: '+4 MCs', life: 1.0, color: '#4ade80' });
               obstaclesRef.current.splice(i, 1); 
               continue; 
@@ -758,11 +810,11 @@ export const GamePreview: React.FC = () => {
           else if (obs.type === 'su_token') { 
               setSus(prev => prev + 1); 
               // Added: SFX and Effect
-              if (collectSoundRef.current) { collectSoundRef.current.currentTime = 0; collectSoundRef.current.play().catch(() => {}); }
+              playDingSfx();
               effectsRef.current.push({ x: obs.x, y: 0, z: obs.z, text: 'S/U SAVED', life: 1.0, color: '#c084fc' });
               obstaclesRef.current.splice(i, 1); 
               continue; 
-          }
+          } 
           if (p.y < obs.height && !p.invincible) {
             if (sus > 0) { setSus(prev => prev - 1); p.invincible = true; p.spawnTime = performance.now(); } 
             else { const finalScore = Math.floor(distanceRef.current / 250); saveScore(finalScore); gameStateRef.current = 'GAME_OVER'; setGameState('GAME_OVER'); }
@@ -986,7 +1038,13 @@ export const GamePreview: React.FC = () => {
         {(gameState === 'START' || gameState === 'GAME_OVER' || gameState === 'GRADUATED') && (
             <div className="absolute z-20 w-[95%] max-w-md bg-slate-900 border-4 border-white p-5 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.8)] text-center scale-95 sm:scale-100 origin-center">
                 <div className="absolute top-2 right-2 text-[10px] text-gray-500 font-bold">v0.71 (MOTION)</div>
-                <h1 className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-b from-orange-400 to-red-600 mb-4 tracking-tighter drop-shadow-[3px_3px_0_rgba(0,0,0,1)] transform -skew-x-6">NUS SURFERS</h1>
+                <div className="flex flex-col items-center gap-2 mb-4">
+                    <div className="relative w-full flex justify-center">
+                        <div className="absolute inset-6 bg-gradient-to-b from-yellow-400/30 via-orange-500/20 to-purple-500/10 blur-3xl opacity-80 pointer-events-none"></div>
+                        <img src={logoUrl} alt="NUS Surfers logo" className="relative z-10 w-full max-w-[360px] drop-shadow-[0_10px_0_rgba(0,0,0,0.8)] mix-blend-screen pointer-events-none select-none" />
+                    </div>
+                    <h1 className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-b from-orange-400 to-red-600 tracking-tighter drop-shadow-[3px_3px_0_rgba(0,0,0,1)] transform -skew-x-6">NUS SURFERS</h1>
+                </div>
                 
                 {gameState === 'GRADUATED' && (
                     <div className="mb-4 bg-blue-950 border-4 border-blue-400 p-4 relative overflow-hidden group">
